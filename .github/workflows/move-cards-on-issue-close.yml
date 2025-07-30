@@ -1,0 +1,19 @@
+name: Move to Done when issue closed
+
+on:
+  issues:
+    types: [closed]
+
+jobs:
+  move-to-done:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call GraphQL to move issue to Done
+        env:
+          GITHUB_TOKEN: ${{ secrets.PROJECTS_TOKEN }}
+          ISSUE_ID: ${{ github.event.issue.node_id }}
+        run: |
+          curl -X POST -H "Authorization: bearer $GITHUB_TOKEN" -H "Content-Type: application/json" \
+          --data '{
+          "query": "mutation { updateProjectV2ItemFieldValue(input: {projectId: \"PVT_kwHOCNBg-c4A9hII\", itemId: \"'"$ISSUE_ID"'\", fieldId: \"PVTSSF_lAHOCNBg-c4A_NU8zgyYWR4\", value: { singleSelectOptionId: \"98236657\" }}) { clientMutationId } }"
+          }' https://api.github.com/graphql
