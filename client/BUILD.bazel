@@ -1,0 +1,7 @@
+load("@io_bazel_rules_kotlin//kotlin:kotlin.bzl", "kt_jvm_binary")
+
+kt_jvm_binary(
+    name = "client_app",
+    srcs = glob(["src/**/*.kt"]),  
+    main_class = "Main",
+)

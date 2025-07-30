@@ -1,0 +1,5 @@
+java_binary(
+    name = "server_app",
+    srcs = glob(["src/**/*.java"]),
+    main_class = "Main",
+)
