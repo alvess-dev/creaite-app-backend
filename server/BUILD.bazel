@@ -1,5 +1,8 @@
+load("@rules_java//java:defs.bzl", "java_binary")
+
 java_binary(
-    name = "server_app",
+    name = "server",
     srcs = glob(["src/**/*.java"]),
     main_class = "Main",
+    visibility = ["//visibility:public"],
 )

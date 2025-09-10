@@ -1,0 +1,17 @@
+# Configurações gerais do Bazel
+build --java_language_version=11
+build --java_runtime_version=remotejdk_11
+build --tool_java_language_version=11
+build --tool_java_runtime_version=remotejdk_11
+
+# Configurações para Kotlin
+build --experimental_strict_java_deps=off
+
+# Configurações de performance
+build --disk_cache=~/.cache/bazel-disk-cache
+build --repository_cache=~/.cache/bazel-repo-cache
+
+# Configurações de saída
+build --show_progress_rate_limit=5
+build --curses=yes
+build --color=yes'
