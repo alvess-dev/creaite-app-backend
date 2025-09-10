@@ -32,13 +32,13 @@ creaite-app/
 ### Rodar backend (Java)
 
 ```bash
-bazel run //server:server_app
+bazel run //server:server
 ```
 
 ### Rodar frontend (Kotlin JVM)
 
 ```bash
-bazel run //client:client_app
+bazel run //client:client
 ```
 
 ### Rodar testes (quando existirem)
