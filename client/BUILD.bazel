@@ -1,8 +1,0 @@
-load("@io_bazel_rules_kotlin//kotlin:jvm.bzl", "kt_jvm_binary")
-
-kt_jvm_binary(
-    name = "client",
-    srcs = glob(["**/*.kt"]),
-    main_class = "MainKt",  # Ajuste conforme sua classe principal
-    visibility = ["//visibility:public"],
-)
