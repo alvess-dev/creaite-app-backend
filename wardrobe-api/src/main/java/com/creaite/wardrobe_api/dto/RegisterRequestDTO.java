@@ -1,4 +1,6 @@
 package com.creaite.wardrobe_api.dto;
 
-public record RegisterRequestDTO (String username, String email, String password) {
+import java.time.LocalDate;
+
+public record RegisterRequestDTO (String username, String email, String password, String language, String name, LocalDate birthDate) {
 }
