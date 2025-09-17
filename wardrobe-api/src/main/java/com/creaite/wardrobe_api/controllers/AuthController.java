@@ -6,6 +6,7 @@ import com.creaite.wardrobe_api.dto.RegisterRequestDTO;
 import com.creaite.wardrobe_api.dto.ResponseDTO;
 import com.creaite.wardrobe_api.infra.security.TokenService;
 import com.creaite.wardrobe_api.repositories.UserRepository;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -37,7 +38,7 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity register(@RequestBody RegisterRequestDTO body){
+    public ResponseEntity register(@RequestBody @Valid RegisterRequestDTO body){
         Optional<User> user = this.repository.findByEmail(body.email());
 
         if(user.isEmpty()) {
@@ -53,3 +54,5 @@ public class AuthController {
         return ResponseEntity.badRequest().build();
     }
 }
+
+
