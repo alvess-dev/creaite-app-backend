@@ -9,8 +9,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.util.Date;
 
 @Service
@@ -88,14 +86,10 @@ public class TokenService {
     }
 
     private Instant generateAccessTokenExpiration() {
-        return LocalDateTime.now()
-                .plusHours(2)
-                .toInstant(ZoneOffset.UTC);
+        return Instant.now().plusSeconds(2 * 60 * 60); // 2 horas
     }
 
     private Instant generateRefreshTokenExpiration() {
-        return LocalDateTime.now()
-                .plusDays(60)
-                .toInstant(ZoneOffset.UTC);
+        return Instant.now().plusSeconds(60 * 24 * 60 * 60); // 60 dias
     }
 }
