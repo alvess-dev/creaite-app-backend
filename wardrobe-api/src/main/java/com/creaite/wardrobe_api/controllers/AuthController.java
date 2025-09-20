@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 @RestController
@@ -31,6 +32,7 @@ public class AuthController {
         User user = this.repository.findByEmail(body.email()).orElseThrow(() -> new RuntimeException("User not found"));
         if(passwordEncoder.matches(body.password(), user.getPassword())) {
             String token = this.tokenService.generateAccessToken(user);
+            user.setLastLogin(LocalDateTime.now());
             return ResponseEntity.ok(new ResponseDTO(user.getName(), token)); //retorna as infos que o front precisa (nesse caso, token e name)
         }
         return ResponseEntity.badRequest().build();
