@@ -20,7 +20,7 @@ import java.util.UUID;
 public class User {
 
     @Id
-    @GeneratedValue
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "id", updatable = false, nullable = false)
     private UUID id;
 
@@ -30,7 +30,7 @@ public class User {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status")
-    private UserStatus status = UserStatus.ACTIVE;
+    private UserStatus status;
 
     @Column(name = "is_verified")
     private Boolean isVerified = false;

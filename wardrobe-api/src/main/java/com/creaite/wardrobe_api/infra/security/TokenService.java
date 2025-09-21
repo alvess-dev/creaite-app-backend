@@ -28,7 +28,7 @@ public class TokenService {
                     .withIssuer("wardrobe-api")
                     .withSubject(user.getEmail())
                     .withClaim("type", "access")
-                    .withClaim("userId", user.getId())
+                    .withClaim("userId", user.getId().toString())
                     .withExpiresAt(Date.from(generateAccessTokenExpiration()))
                     .sign(algorithm);
         } catch (JWTCreationException exception) {
@@ -44,7 +44,7 @@ public class TokenService {
                     .withIssuer("wardrobe-api")
                     .withSubject(user.getEmail())
                     .withClaim("type", "refresh")
-                    .withClaim("userId", user.getId())
+                    .withClaim("userId", user.getId().toString())
                     .withExpiresAt(Date.from(generateRefreshTokenExpiration()))
                     .sign(algorithm);
         } catch (JWTCreationException exception) {
