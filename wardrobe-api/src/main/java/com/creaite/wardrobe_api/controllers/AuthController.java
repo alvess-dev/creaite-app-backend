@@ -33,6 +33,7 @@ public class AuthController {
         if(passwordEncoder.matches(body.password(), user.getPassword())) {
             String token = this.tokenService.generateAccessToken(user);
             user.setLastLogin(LocalDateTime.now());
+            this.repository.save(user);
             return ResponseEntity.ok(new ResponseDTO(user.getName(), token)); //retorna as infos que o front precisa (nesse caso, token e name)
         }
         return ResponseEntity.badRequest().build();
