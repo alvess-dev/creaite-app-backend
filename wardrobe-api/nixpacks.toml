@@ -1,5 +1,0 @@
-[phases.build]
-nixPkgs = ["openjdk17"]
-
-[phases.start]
-nixPkgs = ["openjdk17"]
