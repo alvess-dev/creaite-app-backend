@@ -8,6 +8,7 @@ import com.creaite.wardrobe_api.infra.security.TokenService;
 import com.creaite.wardrobe_api.repositories.UserRepository;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -30,6 +31,11 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity login(@RequestBody LoginRequestDTO body){
         User user = this.repository.findByEmail(body.email()).orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (user.isOAuthUser()) {
+            return ResponseEntity.badRequest().build();
+        }
+
         if(passwordEncoder.matches(body.password(), user.getPassword())) {
             String token = this.tokenService.generateAccessToken(user);
             user.setLastLogin(LocalDateTime.now());
