@@ -1,38 +1,65 @@
 package com.creaite.wardrobe_api.controllers;
 
 import com.creaite.wardrobe_api.domain.user.User;
-import com.creaite.wardrobe_api.dto.RegisterRequestDTO;
-import com.creaite.wardrobe_api.dto.ResponseDTO;
-import com.creaite.wardrobe_api.dto.UserRequestDTO;
-import com.creaite.wardrobe_api.dto.UserResponseDTO;
+import com.creaite.wardrobe_api.dto.UserDTO;
 import com.creaite.wardrobe_api.repositories.UserRepository;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/user")
 @RequiredArgsConstructor
 public class UserController {
     private final UserRepository repository;
+
     @GetMapping
-    public ResponseEntity<String> getUser(@AuthenticationPrincipal User userBody) {
-        User user = this.repository.findByEmail(userBody.getEmail()).orElseThrow(() -> new RuntimeException("User not found"));
-        return ResponseEntity.ok("Olá " + user.getName());
+    public ResponseEntity<UserDTO> getUser(@AuthenticationPrincipal User userBody) {
+        User user = repository.findByEmail(userBody.getEmail())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        return ResponseEntity.ok(new UserDTO(
+                user.getUsername(),
+                user.getName(),
+                user.getBirthDate(),
+                user.getLanguage(),
+                user.getProfilePictureUrl(),
+                user.getBio(),
+                user.getIsVerified(),
+                user.getStatus(),
+                user.getLastLogin(),
+                user.getEmail(),
+                user.getOauthProvider()
+        ));
     }
-    @PutMapping("/update")
-    public ResponseEntity register(@AuthenticationPrincipal User userBody, @RequestBody @Valid UserRequestDTO body){
-        try{
-            userBody.setName(body.name());
-            userBody.setBio(body.bio());
+
+    @PatchMapping("/update")
+    public ResponseEntity<UserDTO> patchUser(@AuthenticationPrincipal User userBody, @RequestBody UserDTO body) {
+        try {
+            if (body.name() != null) userBody.setName(body.name());
+            if (body.username() != null) userBody.setUsername(body.username());
+            if (body.language() != null) userBody.setLanguage(body.language());
+            if (body.profilePictureUrl() != null) userBody.setProfilePictureUrl(body.profilePictureUrl());
+            if (body.bio() != null) userBody.setBio(body.bio());
+            if (body.birthDate() != null) userBody.setBirthDate(body.birthDate());
 
             this.repository.save(userBody);
 
-            return ResponseEntity.ok(new UserResponseDTO(userBody.getName(), userBody.getBio()));
+            return ResponseEntity.ok(new UserDTO(
+                    userBody.getUsername(),
+                    userBody.getName(),
+                    userBody.getBirthDate(),
+                    userBody.getLanguage(),
+                    userBody.getProfilePictureUrl(),
+                    userBody.getBio(),
+                    userBody.getIsVerified(),
+                    userBody.getStatus(),
+                    userBody.getLastLogin(),
+                    userBody.getEmail(),
+                    userBody.getOauthProvider()
+            ));
+
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().build();
         }
