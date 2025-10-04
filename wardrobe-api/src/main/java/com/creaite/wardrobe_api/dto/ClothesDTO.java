@@ -1,8 +1,10 @@
 package com.creaite.wardrobe_api.dto;
 
+import com.creaite.wardrobe_api.domain.user.ClothingCategory;
+
 public record ClothesDTO(
         String name,
-        String category,
+        ClothingCategory category,
         String color,
         String brand,
         String clothingPictureUrl,

@@ -7,10 +7,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.UUID;
-
 
 @Entity
 @Table(name = "clothing_items")
@@ -31,9 +28,9 @@ public class Clothes {
     @Column(name = "name", nullable = false)
     private String name;
 
-    @NotBlank(message = "Category is required")
-    @Column(name = "category", nullable = false)
-    private String category;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "category", columnDefinition = "clothing_category")
+    private ClothingCategory category;
 
     @NotBlank(message = "Color is required")
     @Column(name = "color", nullable = false)
