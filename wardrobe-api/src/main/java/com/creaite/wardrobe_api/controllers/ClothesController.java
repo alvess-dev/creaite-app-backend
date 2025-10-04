@@ -27,8 +27,11 @@ public class ClothesController {
     @PostMapping("/add")
     public ResponseEntity register(@AuthenticationPrincipal User userBody, @RequestBody @Valid ClothesDTO body) {
         try {
+            System.out.println("Authenticated user: " + userBody);
             User user = repository.findByEmail(userBody.getEmail()).orElseThrow(() -> new RuntimeException("User not found"));
             Clothes newClothing = new Clothes();
+            System.out.println("Email from token: " + userBody.getEmail());
+
 
             newClothing.setUserId(user.getId());
             newClothing.setName(body.name());
@@ -50,6 +53,7 @@ public class ClothesController {
                     body.isPublic()
             ));
         } catch (RuntimeException e) {
+            e.printStackTrace();
             return ResponseEntity.badRequest().build();
         }
     }
