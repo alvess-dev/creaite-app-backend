@@ -1,0 +1,53 @@
+package com.creaite.wardrobe_api.domain.user;
+
+import jakarta.persistence.*;
+import jakarta.validation.constraints.*;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+
+@Entity
+@Table(name = "clothing_items")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+public class Clothes {
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(name = "id", updatable = false, nullable = false)
+    private UUID id;
+
+    @Column(name = "user_id", nullable = false)
+    private UUID userId;
+
+    @NotBlank(message = "Name is required")
+    @Column(name = "name", nullable = false)
+    private String name;
+
+    @NotBlank(message = "Category is required")
+    @Column(name = "category", nullable = false)
+    private String category;
+
+    @NotBlank(message = "Color is required")
+    @Column(name = "color", nullable = false)
+    private String color;
+
+    @Column(name = "brand")
+    private String brand;
+
+    @Column(name = "image_url")
+    private String clothingPictureUrl;
+
+    @Column(name = "description")
+    private String description;
+
+    @Column(name = "is_public")
+    private Boolean isPublic = true;
+}
