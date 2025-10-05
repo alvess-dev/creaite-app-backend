@@ -1,5 +1,6 @@
 package com.creaite.wardrobe_api.controllers;
 
+import com.creaite.wardrobe_api.domain.user.Clothes;
 import com.creaite.wardrobe_api.domain.user.User;
 import com.creaite.wardrobe_api.dto.UserDTO;
 import com.creaite.wardrobe_api.repositories.UserRepository;
@@ -7,6 +8,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Optional;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/user")
@@ -61,6 +65,19 @@ public class UserController {
             ));
 
         } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @DeleteMapping("/delete")
+    public ResponseEntity<?> delete(@AuthenticationPrincipal User userBody) {
+        try {
+            User user = repository.findByEmail(userBody.getEmail()).orElseThrow(() -> new RuntimeException("User not found"));
+
+            this.repository.delete(user);
+            return ResponseEntity.ok("User deleted successfully");
+        } catch (RuntimeException e) {
+            e.printStackTrace();
             return ResponseEntity.badRequest().build();
         }
     }
