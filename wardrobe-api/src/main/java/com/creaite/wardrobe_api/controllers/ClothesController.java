@@ -9,12 +9,10 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.Optional;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/clothes")
@@ -23,9 +21,29 @@ public class ClothesController {
     private final UserRepository repository;
     private final ClothesRepository clothesRepository;
 
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> delete(@AuthenticationPrincipal User userBody, @PathVariable UUID id) {
+        try {
+            User user = repository.findByEmail(userBody.getEmail()).orElseThrow(() -> new RuntimeException("User not found"));
+            Optional<Clothes> clothesOpt = clothesRepository.findById(id);
+
+
+            if (clothesOpt.isEmpty() || !clothesOpt.get().getUserId().equals(user.getId())) {
+                return ResponseEntity.status(404).body("Clothing item not found for this user");
+            }
+
+            clothesRepository.delete(clothesOpt.get());
+            return ResponseEntity.ok("Clothing item deleted successfully");
+
+        } catch (RuntimeException e) {
+            e.printStackTrace();
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
     // ADICIONAR ROUPA NO GUARDA-ROUPA
     @PostMapping("/add")
-    public ResponseEntity register(@AuthenticationPrincipal User userBody, @RequestBody @Valid ClothesDTO body) {
+    public ResponseEntity add(@AuthenticationPrincipal User userBody, @RequestBody @Valid ClothesDTO body) {
         try {
             User user = repository.findByEmail(userBody.getEmail()).orElseThrow(() -> new RuntimeException("User not found"));
             Clothes newClothing = new Clothes();
@@ -41,6 +59,7 @@ public class ClothesController {
             clothesRepository.save(newClothing);
 
             return ResponseEntity.ok(new ClothesDTO(
+                    body.id(),
                     body.name(),
                     body.category(),
                     body.color(),
