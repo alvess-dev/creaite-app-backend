@@ -1,6 +1,7 @@
 package com.creaite.wardrobe_api.controllers;
 
 import com.creaite.wardrobe_api.domain.user.Clothes;
+import com.creaite.wardrobe_api.domain.user.ClothingCategory;
 import com.creaite.wardrobe_api.domain.user.User;
 import com.creaite.wardrobe_api.dto.ClothesDTO;
 import com.creaite.wardrobe_api.dto.UserDTO;
@@ -74,11 +75,17 @@ public class UserController {
     }
 
     @GetMapping("/clothes")
-    public ResponseEntity<List<ClothesDTO>> getClothes(@AuthenticationPrincipal User userBody) {
+    public ResponseEntity<List<ClothesDTO>> getClothes(@AuthenticationPrincipal User userBody, @RequestParam(required = false) String category) {
         try {
             User user = repository.findByEmail(userBody.getEmail()).orElseThrow(() -> new RuntimeException("User not found"));
+            List<Clothes> clothesList;
 
-            List<Clothes> clothesList = clothesRepository.findByUserId(user.getId());
+            if (category != null) {
+                ClothingCategory categoryEnum = ClothingCategory.valueOf(category.toUpperCase());
+                clothesList = clothesRepository.findByUserIdAndCategory(user.getId(), categoryEnum);
+            } else {
+                clothesList = clothesRepository.findByUserId(user.getId());
+            }
 
             List<ClothesDTO> clothesDTOList = clothesList.stream()
                     .map(clothes -> new ClothesDTO(
