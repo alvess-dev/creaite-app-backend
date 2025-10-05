@@ -29,7 +29,7 @@ public class Clothes {
     private String name;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "category", columnDefinition = "clothing_category")
+    @Column(name = "category", length = 50)
     private ClothingCategory category;
 
     @NotBlank(message = "Color is required")
