@@ -2,13 +2,16 @@ package com.creaite.wardrobe_api.controllers;
 
 import com.creaite.wardrobe_api.domain.user.Clothes;
 import com.creaite.wardrobe_api.domain.user.User;
+import com.creaite.wardrobe_api.dto.ClothesDTO;
 import com.creaite.wardrobe_api.dto.UserDTO;
+import com.creaite.wardrobe_api.repositories.ClothesRepository;
 import com.creaite.wardrobe_api.repositories.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -17,6 +20,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class UserController {
     private final UserRepository repository;
+    private final ClothesRepository clothesRepository;
 
     @GetMapping
     public ResponseEntity<UserDTO> getUser(@AuthenticationPrincipal User userBody) {
@@ -65,6 +69,34 @@ public class UserController {
             ));
 
         } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @GetMapping("/clothes")
+    public ResponseEntity<List<ClothesDTO>> getClothes(@AuthenticationPrincipal User userBody) {
+        try {
+            User user = repository.findByEmail(userBody.getEmail()).orElseThrow(() -> new RuntimeException("User not found"));
+
+            List<Clothes> clothesList = clothesRepository.findByUserId(user.getId());
+
+            List<ClothesDTO> clothesDTOList = clothesList.stream()
+                    .map(clothes -> new ClothesDTO(
+                            clothes.getId(),
+                            clothes.getName(),
+                            clothes.getCategory(),
+                            clothes.getColor(),
+                            clothes.getBrand(),
+                            clothes.getClothingPictureUrl(),
+                            clothes.getDescription(),
+                            clothes.getIsPublic()
+                    ))
+                    .toList();
+
+            return ResponseEntity.ok(clothesDTOList);
+
+        } catch (RuntimeException e) {
+            e.printStackTrace();
             return ResponseEntity.badRequest().build();
         }
     }
