@@ -28,8 +28,9 @@ public class Clothes {
     @Column(name = "name", nullable = false)
     private String name;
 
+    @NotBlank(message = "Category is required")
     @Enumerated(EnumType.STRING)
-    @Column(name = "category", length = 50)
+    @Column(name = "category", length = 50, nullable = false)
     private ClothingCategory category;
 
     @NotBlank(message = "Color is required")
