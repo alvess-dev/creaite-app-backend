@@ -39,7 +39,8 @@ public class Clothes {
     @Column(name = "brand")
     private String brand;
 
-    @Column(name = "image_url")
+    @NotBlank(message = "picture is required")
+    @Column(name = "image_url", nullable = false)
     private String clothingPictureUrl;
 
     @Column(name = "description")
