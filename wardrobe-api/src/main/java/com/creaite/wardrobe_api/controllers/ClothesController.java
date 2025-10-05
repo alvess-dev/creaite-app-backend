@@ -41,7 +41,48 @@ public class ClothesController {
         }
     }
 
-    // ADICIONAR ROUPA NO GUARDA-ROUPA
+    @PatchMapping("/update/{id}")
+    public ResponseEntity<ClothesDTO> patchClothing(@AuthenticationPrincipal User userBody, @RequestBody @Valid ClothesDTO body, @PathVariable UUID id) {
+        try {
+            User user = repository.findByEmail(userBody.getEmail()).orElseThrow(() -> new RuntimeException("User not found"));
+            Optional<Clothes> clothingOpt = clothesRepository.findById(id);
+
+            if (clothingOpt.isEmpty()) {
+                return ResponseEntity.notFound().build();
+            }
+
+            Clothes clothing = clothingOpt.get();
+
+            if (!clothing.getUserId().equals(user.getId())) {
+                return ResponseEntity.status(403).body(null);
+            }
+
+            if (body.name() != null) clothing.setName(body.name());
+            if (body.category() != null) clothing.setCategory(body.category());
+            if (body.color() != null) clothing.setColor(body.color());
+            if (body.brand() != null) clothing.setBrand(body.brand());
+            if (body.clothingPictureUrl() != null) clothing.setClothingPictureUrl(body.clothingPictureUrl());
+            if (body.description() != null) clothing.setDescription(body.description());
+            if (body.isPublic() != null) clothing.setIsPublic(body.isPublic());
+
+            this.clothesRepository.save(clothing);
+
+            return ResponseEntity.ok(new ClothesDTO(
+                    clothing.getUserId(),
+                    clothing.getName(),
+                    clothing.getCategory(),
+                    clothing.getColor(),
+                    clothing.getBrand(),
+                    clothing.getClothingPictureUrl(),
+                    clothing.getDescription(),
+                    clothing.getIsPublic()
+            ));
+
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
     @PostMapping("/add")
     public ResponseEntity add(@AuthenticationPrincipal User userBody, @RequestBody @Valid ClothesDTO body) {
         try {
