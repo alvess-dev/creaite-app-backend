@@ -7,14 +7,13 @@ import com.creaite.wardrobe_api.dto.ClothesDTO;
 import com.creaite.wardrobe_api.dto.UserDTO;
 import com.creaite.wardrobe_api.repositories.ClothesRepository;
 import com.creaite.wardrobe_api.repositories.UserRepository;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/user")
@@ -44,7 +43,7 @@ public class UserController {
     }
 
     @PatchMapping("/update")
-    public ResponseEntity<UserDTO> patchUser(@AuthenticationPrincipal User userBody, @RequestBody UserDTO body) {
+    public ResponseEntity<UserDTO> patchUser(@AuthenticationPrincipal User userBody, @RequestBody @Valid UserDTO body) {
         try {
             if (body.name() != null) userBody.setName(body.name());
             if (body.username() != null) userBody.setUsername(body.username());
