@@ -10,6 +10,7 @@ bazel-workspace/
 *.war
 *.ear
 *.log
+.env
 
 target/
 .mvn/
@@ -23,3 +24,9 @@ build/
 *.ipr
 .vscode/
 *.sw?
+
+# Sensitive files
+.env
+.env.*
+application-dev.properties
+application-local.properties
