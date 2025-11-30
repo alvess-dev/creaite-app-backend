@@ -1,13 +1,19 @@
 package com.creaite.wardrobe_api.controllers;
 
 import com.creaite.wardrobe_api.domain.user.User;
+import com.creaite.wardrobe_api.dto.GoogleTokenDTO;
 import com.creaite.wardrobe_api.dto.LoginRequestDTO;
 import com.creaite.wardrobe_api.dto.RegisterRequestDTO;
 import com.creaite.wardrobe_api.dto.ResponseDTO;
 import com.creaite.wardrobe_api.infra.security.TokenService;
 import com.creaite.wardrobe_api.repositories.UserRepository;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
+import com.google.api.client.http.javanet.NetHttpTransport;
+import com.google.api.client.json.gson.GsonFactory;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -17,54 +23,146 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.Map;
 import java.util.Optional;
 
 @RestController
 @RequestMapping("/auth")
 @RequiredArgsConstructor
 public class AuthController {
-    // DEPENDÊNCIAS (podia ser autowired tb)
+
     private final UserRepository repository;
     private final PasswordEncoder passwordEncoder;
     private final TokenService tokenService;
 
+    @Value("${GOOGLE_CLIENT_ID}")
+    private String googleClientId;
+
     @PostMapping("/login")
-    public ResponseEntity login(@RequestBody LoginRequestDTO body){
-        User user = this.repository.findByEmail(body.email()).orElseThrow(() -> new RuntimeException("User not found"));
+    public ResponseEntity<?> login(@RequestBody LoginRequestDTO body) {
+        try {
+            User user = this.repository.findByEmail(body.email())
+                    .orElseThrow(() -> new RuntimeException("User not found"));
 
-        if (user.isOAuthUser()) {
-            return ResponseEntity.badRequest().build();
-        }
+            if (user.isOAuthUser()) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", "This account uses Google Sign-In. Please login with Google."));
+            }
 
-        if(passwordEncoder.matches(body.password(), user.getPassword())) {
-            String token = this.tokenService.generateAccessToken(user);
-            user.setLastLogin(LocalDateTime.now());
-            this.repository.save(user);
-            return ResponseEntity.ok(new ResponseDTO(user.getName(), token)); //retorna as infos que o front precisa (nesse caso, token e name)
+            if (passwordEncoder.matches(body.password(), user.getPassword())) {
+                String token = this.tokenService.generateAccessToken(user);
+                user.setLastLogin(LocalDateTime.now());
+                this.repository.save(user);
+                return ResponseEntity.ok(new ResponseDTO(user.getName(), token));
+            }
+
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Invalid email or password"));
+
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", e.getMessage()));
         }
-        return ResponseEntity.badRequest().build();
-        //criar classe controller advice e retornar resposta bonitinha pra tratar exceções
     }
 
     @PostMapping("/register")
-    public ResponseEntity register(@RequestBody @Valid RegisterRequestDTO body){
-        Optional<User> user = this.repository.findByEmail(body.email());
+    public ResponseEntity<?> register(@RequestBody @Valid RegisterRequestDTO body) {
+        try {
+            Optional<User> existingUser = this.repository.findByEmail(body.email());
 
-        if(user.isEmpty()) {
+            if (existingUser.isPresent()) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", "Email already registered"));
+            }
+
+            Optional<User> existingUsername = this.repository.findByUsername(body.username());
+            if (existingUsername.isPresent()) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", "Username already taken"));
+            }
+
             User newUser = new User();
             newUser.setPassword(passwordEncoder.encode(body.password()));
             newUser.setEmail(body.email());
             newUser.setUsername(body.username());
             newUser.setName(body.name());
             newUser.setBirthDate(body.birthDate());
-            newUser.setLanguage(body.language());
+            newUser.setLanguage(body.language() != null ? body.language() : "en");
+            newUser.setStatus(User.UserStatus.ACTIVE);
+            newUser.setIsVerified(false);
             this.repository.save(newUser);
 
             String token = this.tokenService.generateAccessToken(newUser);
             return ResponseEntity.ok(new ResponseDTO(newUser.getName(), token));
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Registration failed: " + e.getMessage()));
         }
-        return ResponseEntity.badRequest().build();
+    }
+
+    @PostMapping("/google")
+    public ResponseEntity<?> googleAuth(@RequestBody GoogleTokenDTO body) {
+        try {
+            GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(
+                    new NetHttpTransport(),
+                    GsonFactory.getDefaultInstance()
+            )
+                    .setAudience(Collections.singletonList(googleClientId))
+                    .build();
+
+            GoogleIdToken idToken = verifier.verify(body.idToken());
+
+            if (idToken != null) {
+                GoogleIdToken.Payload payload = idToken.getPayload();
+                String email = payload.getEmail();
+                String name = (String) payload.get("name");
+                String picture = (String) payload.get("picture");
+
+                User user = repository.findByEmail(email)
+                        .orElseGet(() -> createGoogleUser(email, name, picture));
+
+                user.setLastLogin(LocalDateTime.now());
+                repository.save(user);
+
+                String token = tokenService.generateAccessToken(user);
+                return ResponseEntity.ok(new ResponseDTO(user.getName(), token));
+            }
+
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Invalid Google token"));
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Google authentication failed: " + e.getMessage()));
+        }
+    }
+
+    private User createGoogleUser(String email, String name, String picture) {
+        User newUser = new User();
+        newUser.setEmail(email);
+        newUser.setName(name);
+        newUser.setUsername(generateUniqueUsername(email));
+        newUser.setProfilePictureUrl(picture);
+        newUser.setIsVerified(true);
+        newUser.setStatus(User.UserStatus.ACTIVE);
+        newUser.setLanguage("en");
+        newUser.setOauthProvider("google");
+        newUser.setPassword("OAUTH2_USER_NO_PASSWORD");
+        return repository.save(newUser);
+    }
+
+    private String generateUniqueUsername(String email) {
+        String baseUsername = email.split("@")[0].replaceAll("[^a-zA-Z0-9]", "");
+        String username = baseUsername;
+        int suffix = 1;
+
+        while (repository.findByUsername(username).isPresent()) {
+            username = baseUsername + suffix;
+            suffix++;
+        }
+
+        return username;
     }
 }
-
-
