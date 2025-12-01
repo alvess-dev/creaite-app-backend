@@ -29,7 +29,6 @@ import java.util.Optional;
 @RestController
 @RequestMapping("/auth")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*") // Permite CORS para teste
 public class AuthController {
 
     private final UserRepository repository;
@@ -39,12 +38,13 @@ public class AuthController {
     @Value("${GOOGLE_CLIENT_ID}")
     private String googleClientId;
 
-    // Endpoint para verificar se o email já existe
     @GetMapping("/check-email")
     public ResponseEntity<?> checkEmail(@RequestParam String email) {
-        try {
-            log.info("=== Checking email: {} ===", email);
+        log.info("=== CHECK EMAIL REQUEST ===");
+        log.info("Endpoint: GET /auth/check-email");
+        log.info("Email parameter: {}", email);
 
+        try {
             // Validação básica do formato do email
             if (email == null || email.trim().isEmpty()) {
                 log.warn("Empty email provided");
@@ -52,21 +52,60 @@ public class AuthController {
                         .body(Map.of("error", "Email is required"));
             }
 
-            Optional<User> existingUser = this.repository.findByEmail(email.trim().toLowerCase());
+            String normalizedEmail = email.trim().toLowerCase();
+            log.info("Normalized email: {}", normalizedEmail);
+
+            Optional<User> existingUser = this.repository.findByEmail(normalizedEmail);
+            log.info("User exists in database: {}", existingUser.isPresent());
 
             if (existingUser.isPresent()) {
-                log.info("Email {} already exists", email);
+                log.info("❌ Email {} already exists", normalizedEmail);
                 return ResponseEntity.status(HttpStatus.CONFLICT)
                         .body(Map.of("error", "Email already registered"));
             }
 
-            log.info("Email {} is available", email);
+            log.info("✅ Email {} is available", normalizedEmail);
             return ResponseEntity.ok(Map.of("message", "Email available"));
 
         } catch (Exception e) {
-            log.error("Error checking email: {}", e.getMessage(), e);
+            log.error("❌ Error checking email: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Error checking email: " + e.getMessage()));
+        }
+    }
+
+    @GetMapping("/check-username")
+    public ResponseEntity<?> checkUsername(@RequestParam String username) {
+        log.info("=== CHECK USERNAME REQUEST ===");
+        log.info("Endpoint: GET /auth/check-username");
+        log.info("Username parameter: {}", username);
+
+        try {
+            if (username == null || username.trim().isEmpty()) {
+                log.warn("Empty username provided");
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", "Username is required"));
+            }
+
+            String normalizedUsername = username.trim();
+            log.info("Normalized username: {}", normalizedUsername);
+
+            Optional<User> existingUser = this.repository.findByUsername(normalizedUsername);
+            log.info("Username exists in database: {}", existingUser.isPresent());
+
+            if (existingUser.isPresent()) {
+                log.info("❌ Username {} already exists", normalizedUsername);
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(Map.of("error", "Username already taken"));
+            }
+
+            log.info("✅ Username {} is available", normalizedUsername);
+            return ResponseEntity.ok(Map.of("message", "Username available"));
+
+        } catch (Exception e) {
+            log.error("❌ Error checking username: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Error checking username: " + e.getMessage()));
         }
     }
 

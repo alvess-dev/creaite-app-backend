@@ -9,13 +9,10 @@ public class CorsConfig implements WebMvcConfigurer {
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
-                .allowedOrigins(
-                        "http://localhost:4200",  // Front web
-                        "http://10.0.2.2:8080",   // Emulador Android
-                        "http://192.168.x.x:8080" // Seu IP local para device físico
-                )
+                .allowedOriginPatterns("*")  // 🔴 MUDANÇA AQUI: allowedOriginPatterns ao invés de allowedOrigins
                 .allowedMethods("GET", "POST", "PATCH", "DELETE", "PUT", "OPTIONS")
                 .allowedHeaders("*")
-                .allowCredentials(true);
+                .allowCredentials(true)
+                .maxAge(3600);
     }
 }
