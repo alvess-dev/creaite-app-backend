@@ -1,3 +1,4 @@
+// wardrobe-api/src/main/java/com/creaite/wardrobe_api/domain/user/Clothes.java
 package com.creaite.wardrobe_api.domain.user;
 
 import jakarta.persistence.*;
@@ -7,6 +8,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
@@ -24,29 +26,59 @@ public class Clothes {
     @Column(name = "user_id", nullable = false)
     private UUID userId;
 
-    @NotBlank(message = "Name is required")
-    @Column(name = "name", nullable = false)
+    @Column(name = "name")
     private String name;
 
-    @NotBlank(message = "Category is required")
     @Enumerated(EnumType.STRING)
-    @Column(name = "category", length = 50, nullable = false)
+    @Column(name = "category", length = 50)
     private ClothingCategory category;
 
-    @NotBlank(message = "Color is required")
-    @Column(name = "color", nullable = false)
+    @Column(name = "color")
     private String color;
 
     @Column(name = "brand")
     private String brand;
 
-    @NotBlank(message = "picture is required")
-    @Column(name = "image_url", nullable = false)
+    @Column(name = "image_url", nullable = false, columnDefinition = "TEXT")
     private String clothingPictureUrl;
+
+    @Column(name = "original_image_url", columnDefinition = "TEXT")
+    private String originalImageUrl;
 
     @Column(name = "description")
     private String description;
 
     @Column(name = "is_public")
     private Boolean isPublic = true;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "processing_status", nullable = false)
+    private ProcessingStatus processingStatus = ProcessingStatus.COMPLETED;
+
+    @Column(name = "processing_error")
+    private String processingError;
+
+    @Column(name = "created_at", nullable = false)
+    private LocalDateTime createdAt;
+
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
+
+    public enum ProcessingStatus {
+        PENDING,      // Aguardando processamento
+        PROCESSING,   // Sendo processada pela IA
+        COMPLETED,    // Processamento concluído
+        FAILED        // Falha no processamento
+    }
 }
