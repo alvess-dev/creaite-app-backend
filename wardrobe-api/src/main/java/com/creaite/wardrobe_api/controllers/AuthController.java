@@ -45,7 +45,6 @@ public class AuthController {
         log.info("Email parameter: {}", email);
 
         try {
-            // Validação básica do formato do email
             if (email == null || email.trim().isEmpty()) {
                 log.warn("Empty email provided");
                 return ResponseEntity.badRequest()
@@ -191,6 +190,21 @@ public class AuthController {
         try {
             log.info("=== Google authentication attempt ===");
 
+            // 1. Validar se o token foi enviado
+            if (body.idToken() == null || body.idToken().trim().isEmpty()) {
+                log.error("❌ Empty or null idToken received");
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", "Invalid token: idToken is required"));
+            }
+
+            log.info("Received idToken (length: {})", body.idToken().length());
+            log.info("Token preview: {}...", body.idToken().substring(0, Math.min(50, body.idToken().length())));
+
+            // 2. Configurar verificador do Google
+            log.info("Configuring Google Token Verifier...");
+            log.info("Using Client ID (first 30 chars): {}...",
+                    googleClientId.substring(0, Math.min(30, googleClientId.length())));
+
             GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(
                     new NetHttpTransport(),
                     GsonFactory.getDefaultInstance()
@@ -198,64 +212,214 @@ public class AuthController {
                     .setAudience(Collections.singletonList(googleClientId))
                     .build();
 
-            GoogleIdToken idToken = verifier.verify(body.idToken());
+            log.info("Verifying token with Google API...");
 
-            if (idToken != null) {
-                GoogleIdToken.Payload payload = idToken.getPayload();
-                String email = payload.getEmail();
-                String name = (String) payload.get("name");
-                String picture = (String) payload.get("picture");
-
-                log.info("Google auth successful for email: {}", email);
-
-                User user = repository.findByEmail(email)
-                        .orElseGet(() -> createGoogleUser(email, name, picture));
-
-                user.setLastLogin(LocalDateTime.now());
-                repository.save(user);
-
-                String token = tokenService.generateAccessToken(user);
-                return ResponseEntity.ok(new ResponseDTO(user.getName(), token));
+            // 3. Verificar o token
+            GoogleIdToken idToken = null;
+            try {
+                idToken = verifier.verify(body.idToken());
+            } catch (Exception verifyException) {
+                log.error("❌ Token verification threw exception");
+                log.error("Exception type: {}", verifyException.getClass().getName());
+                log.error("Exception message: {}", verifyException.getMessage());
+                throw verifyException;
             }
 
-            log.warn("Invalid Google token");
-            return ResponseEntity.badRequest()
-                    .body(Map.of("error", "Invalid Google token"));
+            // 4. Verificar se a verificação falhou
+            if (idToken == null) {
+                log.error("❌ Token verification FAILED - Google returned null");
+                log.error("Possible causes:");
+                log.error("  1. Wrong Client ID configured in backend");
+                log.error("  2. Token was generated for a different Client ID");
+                log.error("  3. Token has expired");
+                log.error("  4. Token signature is invalid");
+                log.error("");
+                log.error("Backend is using Client ID: {}...",
+                        googleClientId.substring(0, Math.min(30, googleClientId.length())));
+
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of(
+                                "error", "Invalid Google token",
+                                "details", "Token verification failed - token may be invalid or expired"
+                        ));
+            }
+
+            // 5. Extrair dados do payload
+            log.info("✅ Token verified successfully by Google");
+            GoogleIdToken.Payload payload = idToken.getPayload();
+
+            String email = payload.getEmail();
+            String name = (String) payload.get("name");
+            String picture = (String) payload.get("picture");
+            Boolean emailVerified = payload.getEmailVerified();
+            String subject = payload.getSubject(); // Google User ID
+
+            log.info("=== Token Payload Data ===");
+            log.info("Subject (Google User ID): {}", subject);
+            log.info("Email: {}", email);
+            log.info("Email Verified: {}", emailVerified);
+            log.info("Name: {}", name);
+            log.info("Picture URL: {}", picture != null ? "present" : "null");
+
+            // 6. Validar dados obrigatórios do payload
+            if (email == null || email.trim().isEmpty()) {
+                log.error("❌ Email is null or empty in token payload");
+                return ResponseEntity.badRequest()
+                        .body(Map.of(
+                                "error", "Invalid token: email not found",
+                                "details", "Google token did not contain email address"
+                        ));
+            }
+
+            // 7. Garantir que name não seja vazio
+            if (name == null || name.trim().isEmpty()) {
+                log.warn("⚠️ Name is null or empty in token, using email prefix");
+                name = email.split("@")[0];
+                log.info("Generated name from email: {}", name);
+            }
+
+            // 8. Buscar ou criar usuário
+            log.info("Looking up user by email: {}", email);
+            Optional<User> existingUserOpt = repository.findByEmail(email);
+
+            User user;
+            if (existingUserOpt.isPresent()) {
+                log.info("✅ User found - existing Google user");
+                user = existingUserOpt.get();
+
+                // Atualizar informações se mudaram
+                boolean updated = false;
+                if (picture != null && !picture.equals(user.getProfilePictureUrl())) {
+                    log.info("Updating profile picture");
+                    user.setProfilePictureUrl(picture);
+                    updated = true;
+                }
+                if (!name.equals(user.getName())) {
+                    log.info("Updating name from '{}' to '{}'", user.getName(), name);
+                    user.setName(name);
+                    updated = true;
+                }
+
+                if (updated) {
+                    log.info("Saving updated user info");
+                }
+            } else {
+                log.info("User not found - creating new Google user");
+                user = createGoogleUser(email, name, picture);
+            }
+
+            // 9. Atualizar último login
+            user.setLastLogin(LocalDateTime.now());
+            repository.save(user);
+            log.info("User last login updated");
+
+            // 10. Gerar token JWT
+            log.info("Generating JWT access token...");
+            String token = tokenService.generateAccessToken(user);
+
+            log.info("=== Google Auth Complete ===");
+            log.info("User ID: {}", user.getId());
+            log.info("Username: {}", user.getUsername());
+            log.info("Email: {}", user.getEmail());
+            log.info("✅ JWT token generated successfully");
+
+            return ResponseEntity.ok(new ResponseDTO(user.getName(), token));
 
         } catch (Exception e) {
-            log.error("Google auth error: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("error", "Google authentication failed: " + e.getMessage()));
+            log.error("=== Google Auth Exception ===");
+            log.error("Exception class: {}", e.getClass().getName());
+            log.error("Exception message: {}", e.getMessage());
+            log.error("Stack trace:", e);
+
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of(
+                            "error", "Google authentication failed",
+                            "details", e.getMessage() != null ? e.getMessage() : "Unknown error",
+                            "type", e.getClass().getSimpleName()
+                    ));
         }
     }
 
     private User createGoogleUser(String email, String name, String picture) {
-        log.info("Creating new Google user: {}", email);
+        log.info("=== Creating New Google User ===");
+        log.info("Email: '{}'", email);
+        log.info("Name: '{}'", name);
+        log.info("Picture: '{}'", picture);
 
-        User newUser = new User();
-        newUser.setEmail(email.toLowerCase().trim());
-        newUser.setName(name);
-        newUser.setUsername(generateUniqueUsername(email));
-        newUser.setProfilePictureUrl(picture);
-        newUser.setIsVerified(true);
-        newUser.setStatus(User.UserStatus.ACTIVE);
-        newUser.setLanguage("en");
-        newUser.setOauthProvider("google");
-        newUser.setPassword("OAUTH2_USER_NO_PASSWORD");
-        return repository.save(newUser);
+        // Validações de segurança
+        if (email == null || email.trim().isEmpty()) {
+            log.error("❌ FATAL: Cannot create user - email is null or empty");
+            throw new IllegalArgumentException("Email is required to create user");
+        }
+
+        if (name == null || name.trim().isEmpty()) {
+            log.error("❌ FATAL: Cannot create user - name is null or empty");
+            throw new IllegalArgumentException("Name is required to create user");
+        }
+
+        try {
+            User newUser = new User();
+            newUser.setEmail(email.toLowerCase().trim());
+            newUser.setName(name.trim());
+            newUser.setUsername(generateUniqueUsername(email));
+            newUser.setProfilePictureUrl(picture);
+            newUser.setIsVerified(true); // Google já verificou o email
+            newUser.setStatus(User.UserStatus.ACTIVE);
+            newUser.setLanguage("en");
+            newUser.setOauthProvider("google");
+            newUser.setPassword("OAUTH2_USER_NO_PASSWORD");
+
+            log.info("User object created, attempting to save to database...");
+            log.info("Username: {}", newUser.getUsername());
+            log.info("OAuth Provider: {}", newUser.getOauthProvider());
+            log.info("Is Verified: {}", newUser.getIsVerified());
+
+            User savedUser = repository.save(newUser);
+
+            log.info("✅ Google user saved successfully");
+            log.info("Generated User ID: {}", savedUser.getId());
+            log.info("Final Username: {}", savedUser.getUsername());
+
+            return savedUser;
+
+        } catch (Exception e) {
+            log.error("❌ Failed to save Google user to database");
+            log.error("Error type: {}", e.getClass().getName());
+            log.error("Error message: {}", e.getMessage());
+            log.error("Stack trace:", e);
+            throw new RuntimeException("Failed to create Google user: " + e.getMessage(), e);
+        }
     }
 
     private String generateUniqueUsername(String email) {
+        log.info("Generating unique username from email: {}", email);
+
         String baseUsername = email.split("@")[0].replaceAll("[^a-zA-Z0-9]", "");
+
+        // Garantir que não seja vazio
+        if (baseUsername.isEmpty()) {
+            log.warn("Email resulted in empty username, using default");
+            baseUsername = "user" + System.currentTimeMillis();
+        }
+
         String username = baseUsername;
         int suffix = 1;
+        int attempts = 0;
+        int maxAttempts = 1000;
 
         while (repository.findByUsername(username).isPresent()) {
             username = baseUsername + suffix;
             suffix++;
+            attempts++;
+
+            if (attempts >= maxAttempts) {
+                log.warn("Username generation exceeded max attempts, using timestamp");
+                username = baseUsername + "_" + System.currentTimeMillis();
+                break;
+            }
         }
 
-        log.info("Generated unique username: {}", username);
+        log.info("Generated unique username: '{}' (took {} attempts)", username, attempts);
         return username;
     }
 }
