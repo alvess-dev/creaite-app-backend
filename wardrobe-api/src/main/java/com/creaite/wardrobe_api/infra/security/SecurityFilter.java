@@ -15,33 +15,68 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.Collections;
+import java.util.Arrays;
+import java.util.List;
 
 @Component
-public class SecurityFilter extends OncePerRequestFilter { // filtro que executa a cada request
+public class SecurityFilter extends OncePerRequestFilter {
+
     @Autowired
     TokenService tokenService;
+
     @Autowired
     UserRepository userRepository;
 
-    // verifica se o token é válido
+    // Lista de endpoints públicos que não precisam de autenticação
+    private static final List<String> PUBLIC_ENDPOINTS = Arrays.asList(
+            "/auth/login",
+            "/auth/register",
+            "/auth/google",
+            "/auth/check-email",
+            "/oauth2/",
+            "/login/oauth2/"
+    );
+
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+            throws ServletException, IOException {
+
+        String requestPath = request.getRequestURI();
+        String method = request.getMethod();
+
+        // Permitir OPTIONS para CORS
+        if ("OPTIONS".equalsIgnoreCase(method)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        // Verificar se é um endpoint público
+        boolean isPublicEndpoint = PUBLIC_ENDPOINTS.stream()
+                .anyMatch(endpoint -> requestPath.startsWith(endpoint) || requestPath.contains(endpoint));
+
+        if (isPublicEndpoint) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        // Para endpoints protegidos, validar token
         var token = this.recoverToken(request);
         var login = tokenService.validateAccessToken(token);
 
-        if(login != null){ // se o token passa
-            User user = userRepository.findByEmail(login).orElseThrow(() -> new RuntimeException("User Not Found")); // trata se user n tver email
+        if(login != null) {
+            User user = userRepository.findByEmail(login)
+                    .orElseThrow(() -> new RuntimeException("User Not Found"));
             var authorities = Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER"));
             var authentication = new UsernamePasswordAuthenticationToken(user, null, authorities);
             SecurityContextHolder.getContext().setAuthentication(authentication);
         }
+
         filterChain.doFilter(request, response);
     }
 
-    // recebe request e ve o header authorization
     private String recoverToken(HttpServletRequest request){
-        var authHeader = request.getHeader("Authorization"); // PEGA O HEADER DO FRONT
+        var authHeader = request.getHeader("Authorization");
         if(authHeader == null) return null;
-        return authHeader.replace("Bearer ", ""); // FICA SÓ O VALOR DO TOKEN
+        return authHeader.replace("Bearer ", "");
     }
 }

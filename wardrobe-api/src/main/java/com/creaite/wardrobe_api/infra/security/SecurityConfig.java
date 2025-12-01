@@ -16,31 +16,38 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
-@Configuration  // classe de config, vai ter que carregar antes de todos componentes
-@EnableWebSecurity // cuida da config da segurança web
+@Configuration
+@EnableWebSecurity
 public class SecurityConfig {
 
-    // DEPENDENCIAS
     @Autowired
     private CustomUserDetailsService userDetailsService;
 
     @Autowired
-    SecurityFilter securityFilter; // filtro nas requisições
+    SecurityFilter securityFilter;
 
     @Autowired
     private OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
 
     @Bean
-
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
+                        // Rotas de autenticação públicas
                         .requestMatchers(HttpMethod.POST, "/auth/login").permitAll()
                         .requestMatchers(HttpMethod.POST, "/auth/register").permitAll()
                         .requestMatchers(HttpMethod.POST, "/auth/google").permitAll()
+
+                        // NOVO: Rotas de verificação públicas (GET)
+                        .requestMatchers(HttpMethod.GET, "/auth/check-email").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/auth/check-username").permitAll()
+
+                        // OAuth2
                         .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
+
+                        // Todas as outras rotas requerem autenticação
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth2 -> oauth2
@@ -53,7 +60,7 @@ public class SecurityConfig {
                             response.getWriter().write("{\"error\": \"Unauthorized - Token missing or invalid\"}");
                         })
                 )
-                .addFilterBefore(securityFilter, UsernamePasswordAuthenticationFilter.class); // antes de fazer, adiciona o filtro que valida o token
+                .addFilterBefore(securityFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 
@@ -67,4 +74,3 @@ public class SecurityConfig {
         return authenticationConfiguration.getAuthenticationManager();
     }
 }
-
