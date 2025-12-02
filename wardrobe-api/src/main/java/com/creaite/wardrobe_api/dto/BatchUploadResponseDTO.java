@@ -2,10 +2,9 @@
 package com.creaite.wardrobe_api.dto;
 
 import java.util.List;
-import java.util.UUID;
 
 public record BatchUploadResponseDTO(
-        List<UUID> clothingIds,
+        List<String> clothingIds,  // ✅ Mudou de UUID para String
         String message,
         Integer totalUploaded
 ) {}

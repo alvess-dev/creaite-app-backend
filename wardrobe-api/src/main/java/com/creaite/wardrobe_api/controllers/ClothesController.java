@@ -2,6 +2,7 @@
 package com.creaite.wardrobe_api.controllers;
 
 import com.creaite.wardrobe_api.domain.user.Clothes;
+import com.creaite.wardrobe_api.domain.user.ClothingCategory;
 import com.creaite.wardrobe_api.domain.user.User;
 import com.creaite.wardrobe_api.dto.*;
 import com.creaite.wardrobe_api.repositories.ClothesRepository;
@@ -45,23 +46,23 @@ public class ClothesController {
             newClothing.setOriginalImageUrl(body.imageBase64());
 
             if (body.processWithAI()) {
-                // Se processar com IA, começa com PENDING
                 newClothing.setProcessingStatus(Clothes.ProcessingStatus.PENDING);
-                newClothing.setClothingPictureUrl(body.imageBase64()); // Temporário
+                newClothing.setClothingPictureUrl(body.imageBase64());
             } else {
-                // Se não processar, já marca como COMPLETED
                 newClothing.setProcessingStatus(Clothes.ProcessingStatus.COMPLETED);
                 newClothing.setClothingPictureUrl(body.imageBase64());
             }
 
-            // Valores padrão
+            // ✅ VALORES PADRÃO OBRIGATÓRIOS
             newClothing.setName("New Item");
+            newClothing.setCategory(ClothingCategory.SHIRT);
+            newClothing.setColor("Unknown"); // ✅ ADICIONADO
+            newClothing.setBrand("Unknown");  // ✅ ADICIONADO
             newClothing.setIsPublic(true);
 
             Clothes saved = clothesRepository.save(newClothing);
             log.info("✅ Clothing saved with ID: {}", saved.getId());
 
-            // Se processar com IA, inicia processamento assíncrono
             if (body.processWithAI()) {
                 log.info("Starting async AI processing...");
                 processingService.processClothingImageAsync(saved.getId());
@@ -103,7 +104,11 @@ public class ClothesController {
                     newClothing.setClothingPictureUrl(imageBase64);
                 }
 
+                // ✅ VALORES PADRÃO OBRIGATÓRIOS
                 newClothing.setName("New Item");
+                newClothing.setCategory(ClothingCategory.SHIRT);
+                newClothing.setColor("Unknown"); // ✅ ADICIONADO
+                newClothing.setBrand("Unknown");  // ✅ ADICIONADO
                 newClothing.setIsPublic(true);
 
                 Clothes saved = clothesRepository.save(newClothing);
@@ -112,14 +117,18 @@ public class ClothesController {
 
             log.info("✅ {} items saved", clothingIds.size());
 
-            // Se processar com IA, inicia processamento em batch
             if (body.processWithAI()) {
                 log.info("Starting batch async AI processing...");
                 processingService.processBatchClothingImagesAsync(clothingIds);
             }
 
+            // Converter UUID para String
+            List<String> clothingIdsAsStrings = clothingIds.stream()
+                    .map(UUID::toString)
+                    .toList();
+
             return ResponseEntity.ok(new BatchUploadResponseDTO(
-                    clothingIds,
+                    clothingIdsAsStrings,
                     "Upload successful",
                     clothingIds.size()
             ));
@@ -227,13 +236,13 @@ public class ClothesController {
             Clothes newClothing = new Clothes();
 
             newClothing.setUserId(user.getId());
-            newClothing.setName(body.name());
-            newClothing.setCategory(body.category());
-            newClothing.setColor(body.color());
-            newClothing.setBrand(body.brand());
+            newClothing.setName(body.name() != null ? body.name() : "New Item");
+            newClothing.setCategory(body.category() != null ? body.category() : ClothingCategory.SHIRT);
+            newClothing.setColor(body.color() != null ? body.color() : "Unknown");
+            newClothing.setBrand(body.brand() != null ? body.brand() : "Unknown");
             newClothing.setClothingPictureUrl(body.clothingPictureUrl());
             newClothing.setDescription(body.description());
-            newClothing.setIsPublic(body.isPublic());
+            newClothing.setIsPublic(body.isPublic() != null ? body.isPublic() : true);
             newClothing.setProcessingStatus(Clothes.ProcessingStatus.COMPLETED);
 
             clothesRepository.save(newClothing);
