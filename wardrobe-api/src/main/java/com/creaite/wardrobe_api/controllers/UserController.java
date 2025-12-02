@@ -1,3 +1,4 @@
+// wardrobe-api/src/main/java/com/creaite/wardrobe_api/controllers/UserController.java
 package com.creaite.wardrobe_api.controllers;
 
 import com.creaite.wardrobe_api.domain.user.Clothes;
@@ -86,6 +87,7 @@ public class UserController {
                 clothesList = clothesRepository.findByUserId(user.getId());
             }
 
+            // ✅ CORREÇÃO: Incluir os campos de processamento
             List<ClothesDTO> clothesDTOList = clothesList.stream()
                     .map(clothes -> new ClothesDTO(
                             clothes.getId(),
@@ -94,8 +96,13 @@ public class UserController {
                             clothes.getColor(),
                             clothes.getBrand(),
                             clothes.getClothingPictureUrl(),
+                            clothes.getOriginalImageUrl(), // ✅ ADICIONADO
                             clothes.getDescription(),
-                            clothes.getIsPublic()
+                            clothes.getIsPublic(),
+                            clothes.getProcessingStatus(), // ✅ ADICIONADO
+                            clothes.getProcessingError(),  // ✅ ADICIONADO
+                            clothes.getCreatedAt(),        // ✅ ADICIONADO
+                            clothes.getUpdatedAt()         // ✅ ADICIONADO
                     ))
                     .toList();
 
