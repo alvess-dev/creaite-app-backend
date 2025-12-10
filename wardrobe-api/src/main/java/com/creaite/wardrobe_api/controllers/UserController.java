@@ -10,12 +10,15 @@ import com.creaite.wardrobe_api.repositories.ClothesRepository;
 import com.creaite.wardrobe_api.repositories.UserRepository;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
+@Slf4j
 @RestController
 @RequestMapping("/user")
 @RequiredArgsConstructor
@@ -74,6 +77,29 @@ public class UserController {
         }
     }
 
+    // ✅ NOVO: Endpoint para marcar onboarding como completo
+    @PostMapping("/complete-onboarding")
+    public ResponseEntity<?> completeOnboarding(@AuthenticationPrincipal User userBody) {
+        try {
+            log.info("=== Complete Onboarding ===");
+            log.info("User: {}", userBody.getEmail());
+
+            User user = repository.findByEmail(userBody.getEmail())
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            user.setHasCompletedOnboarding(true);
+            repository.save(user);
+
+            log.info("✅ Onboarding marked as complete");
+            return ResponseEntity.ok(Map.of("message", "Onboarding completed"));
+
+        } catch (Exception e) {
+            log.error("❌ Error completing onboarding: {}", e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
+
     @GetMapping("/clothes")
     public ResponseEntity<List<ClothesDTO>> getClothes(@AuthenticationPrincipal User userBody, @RequestParam(required = false) String category) {
         try {
@@ -87,7 +113,6 @@ public class UserController {
                 clothesList = clothesRepository.findByUserId(user.getId());
             }
 
-            // ✅ CORREÇÃO: Incluir os campos de processamento
             List<ClothesDTO> clothesDTOList = clothesList.stream()
                     .map(clothes -> new ClothesDTO(
                             clothes.getId(),
@@ -96,13 +121,13 @@ public class UserController {
                             clothes.getColor(),
                             clothes.getBrand(),
                             clothes.getClothingPictureUrl(),
-                            clothes.getOriginalImageUrl(), // ✅ ADICIONADO
+                            clothes.getOriginalImageUrl(),
                             clothes.getDescription(),
                             clothes.getIsPublic(),
-                            clothes.getProcessingStatus(), // ✅ ADICIONADO
-                            clothes.getProcessingError(),  // ✅ ADICIONADO
-                            clothes.getCreatedAt(),        // ✅ ADICIONADO
-                            clothes.getUpdatedAt()         // ✅ ADICIONADO
+                            clothes.getProcessingStatus(),
+                            clothes.getProcessingError(),
+                            clothes.getCreatedAt(),
+                            clothes.getUpdatedAt()
                     ))
                     .toList();
 

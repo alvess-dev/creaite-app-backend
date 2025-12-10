@@ -126,7 +126,13 @@ public class AuthController {
                 this.repository.save(user);
 
                 log.info("Login successful for user: {}", user.getEmail());
-                return ResponseEntity.ok(new ResponseDTO(user.getName(), token));
+
+                // ✅ MODIFICADO: Retorna hasCompletedOnboarding
+                return ResponseEntity.ok(new ResponseDTO(
+                        user.getName(),
+                        token,
+                        user.getHasCompletedOnboarding() != null ? user.getHasCompletedOnboarding() : false
+                ));
             }
 
             log.warn("Invalid password for user: {}", body.email());
@@ -204,13 +210,15 @@ public class AuthController {
                     log.info("BirthDate parsed: {}", newUser.getBirthDate());
                 } catch (Exception e) {
                     log.warn("Failed to parse birthDate: {}", body.birthDate());
-                    // Continua sem birthDate
                 }
             }
 
             newUser.setLanguage(body.language() != null ? body.language() : "en");
             newUser.setStatus(User.UserStatus.ACTIVE);
             newUser.setIsVerified(false);
+
+            // ✅ NOVO: Usuário novo ainda não completou onboarding
+            newUser.setHasCompletedOnboarding(false);
 
             log.info("Saving new user to database...");
             User savedUser = this.repository.save(newUser);
@@ -219,7 +227,8 @@ public class AuthController {
             String token = this.tokenService.generateAccessToken(savedUser);
             log.info("✅ Token generated successfully");
 
-            ResponseDTO response = new ResponseDTO(savedUser.getName(), token);
+            // ✅ MODIFICADO: Retorna hasCompletedOnboarding = false (primeiro acesso)
+            ResponseDTO response = new ResponseDTO(savedUser.getName(), token, false);
             log.info("✅ Registration complete - returning response");
 
             return ResponseEntity.ok(response);
@@ -294,6 +303,8 @@ public class AuthController {
             Optional<User> existingUserOpt = repository.findByEmail(email);
 
             User user;
+            boolean isFirstLogin = false;
+
             if (existingUserOpt.isPresent()) {
                 log.info("✅ User found - existing Google user");
                 user = existingUserOpt.get();
@@ -307,6 +318,7 @@ public class AuthController {
             } else {
                 log.info("User not found - creating new Google user");
                 user = createGoogleUser(email, name, picture);
+                isFirstLogin = true; // ✅ Novo usuário = primeiro login
             }
 
             user.setLastLogin(LocalDateTime.now());
@@ -315,7 +327,12 @@ public class AuthController {
             String token = tokenService.generateAccessToken(user);
             log.info("✅ Google Auth Complete");
 
-            return ResponseEntity.ok(new ResponseDTO(user.getName(), token));
+            // ✅ MODIFICADO: Retorna hasCompletedOnboarding
+            return ResponseEntity.ok(new ResponseDTO(
+                    user.getName(),
+                    token,
+                    user.getHasCompletedOnboarding() != null ? user.getHasCompletedOnboarding() : false
+            ));
 
         } catch (Exception e) {
             log.error("❌ Google Auth Exception: {}", e.getMessage(), e);
@@ -345,6 +362,9 @@ public class AuthController {
         newUser.setLanguage("en");
         newUser.setOauthProvider("google");
         newUser.setPassword("OAUTH2_USER_NO_PASSWORD");
+
+        // ✅ NOVO: Usuário do Google também não completou onboarding
+        newUser.setHasCompletedOnboarding(false);
 
         User savedUser = repository.save(newUser);
         log.info("✅ Google user saved successfully with ID: {}", savedUser.getId());

@@ -67,6 +67,10 @@ public class User {
     @Column(name = "bio")
     private String bio;
 
+    // ✅ NOVO: Campo para controlar se o usuário completou o onboarding
+    @Column(name = "has_completed_onboarding")
+    private Boolean hasCompletedOnboarding = false;
+
     public boolean isOAuthUser() {
         return oauthProvider != null && !oauthProvider.isEmpty();
     }

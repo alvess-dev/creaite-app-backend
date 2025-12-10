@@ -9,16 +9,15 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
-import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
@@ -37,6 +36,10 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
         String name = oAuth2User.getAttribute("name");
         String picture = oAuth2User.getAttribute("picture");
 
+        log.info("=== OAuth2 Login Success ===");
+        log.info("Email: {}", email);
+        log.info("Name: {}", name);
+
         User user = this.repository.findByEmail(email).orElseGet(() -> createNewUser(email, name, picture));
 
         user.setLastLogin(LocalDateTime.now());
@@ -44,10 +47,19 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
 
         String token = tokenService.generateAccessToken(user);
 
-        ResponseDTO responseDTO = new ResponseDTO(user.getName(), token);
+        // ✅ CORRIGIDO: Incluir hasCompletedOnboarding
+        ResponseDTO responseDTO = new ResponseDTO(
+                user.getName(),
+                token,
+                user.getHasCompletedOnboarding() != null ? user.getHasCompletedOnboarding() : false
+        );
+
+        log.info("✅ OAuth2 authentication successful for user: {}", user.getEmail());
     }
 
     private User createNewUser(String email, String name, String picture) {
+        log.info("=== Creating new OAuth2 user ===");
+
         User newUser = new User();
         newUser.setEmail(email);
         newUser.setName(name);
@@ -59,11 +71,22 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
         newUser.setOauthProvider("google");
         newUser.setPassword("OAUTH2_USER_NO_PASSWORD");
 
-        return this.repository.save(newUser);
+        // ✅ ADICIONADO: Novo usuário não completou onboarding
+        newUser.setHasCompletedOnboarding(false);
+
+        User savedUser = this.repository.save(newUser);
+        log.info("✅ New OAuth2 user created with ID: {}", savedUser.getId());
+
+        return savedUser;
     }
 
     private String generateUniqueUsername(String email) {
-        String baseUsername = email.split("@")[0];
+        String baseUsername = email.split("@")[0].replaceAll("[^a-zA-Z0-9]", "");
+
+        if (baseUsername.isEmpty()) {
+            baseUsername = "user" + System.currentTimeMillis();
+        }
+
         String username = baseUsername;
         int suffix = 1;
 
@@ -72,6 +95,7 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
             suffix++;
         }
 
+        log.info("Generated unique username: '{}'", username);
         return username;
     }
 }
