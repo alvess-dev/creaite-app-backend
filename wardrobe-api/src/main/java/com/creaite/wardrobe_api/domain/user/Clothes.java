@@ -51,6 +51,10 @@ public class Clothes {
     @Column(name = "is_public")
     private Boolean isPublic = true;
 
+    // ✅ NOVO: Campo de favorito
+    @Column(name = "is_favorite")
+    private Boolean isFavorite = false;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "processing_status", nullable = false)
     private ProcessingStatus processingStatus = ProcessingStatus.COMPLETED;
@@ -76,9 +80,9 @@ public class Clothes {
     }
 
     public enum ProcessingStatus {
-        PENDING,      // Aguardando processamento
-        PROCESSING,   // Sendo processada pela IA
-        COMPLETED,    // Processamento concluído
-        FAILED        // Falha no processamento
+        PENDING,
+        PROCESSING,
+        COMPLETED,
+        FAILED
     }
 }

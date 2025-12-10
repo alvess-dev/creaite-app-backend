@@ -52,12 +52,12 @@ public class ClothesController {
                 newClothing.setClothingPictureUrl(body.imageBase64());
             }
 
-            // ✅ VALORES PADRÃO OBRIGATÓRIOS
             newClothing.setName("New Item");
             newClothing.setCategory(ClothingCategory.SHIRT);
-            newClothing.setColor("Unknown"); // ✅ ADICIONADO
-            newClothing.setBrand("Unknown");  // ✅ ADICIONADO
+            newClothing.setColor("Unknown");
+            newClothing.setBrand("Unknown");
             newClothing.setIsPublic(true);
+            newClothing.setIsFavorite(false);  // ✅ NOVO
 
             Clothes saved = clothesRepository.save(newClothing);
             log.info("✅ Clothing saved with ID: {}", saved.getId());
@@ -108,6 +108,7 @@ public class ClothesController {
                 newClothing.setColor("Unknown");
                 newClothing.setBrand("Unknown");
                 newClothing.setIsPublic(true);
+                newClothing.setIsFavorite(false);  // ✅ NOVO
 
                 Clothes saved = clothesRepository.save(newClothing);
                 clothingIds.add(saved.getId());
@@ -134,6 +135,78 @@ public class ClothesController {
             log.error("❌ Batch upload error: {}", e.getMessage(), e);
             return ResponseEntity.badRequest()
                     .body(new ErrorResponseDTO("Batch upload failed", e.getMessage()));
+        }
+    }
+
+    // ✅ NOVO: Upload avançado com metadados customizados
+    @PostMapping("/upload/advanced")
+    public ResponseEntity<?> uploadAdvancedClothing(
+            @AuthenticationPrincipal User userBody,
+            @RequestBody @Valid BatchAdvancedItemDTO body) {
+        try {
+            log.info("=== Advanced Upload Request ===");
+            log.info("Name: {}", body.name());
+            log.info("Category: {}", body.category());
+
+            User user = userRepository.findByEmail(userBody.getEmail())
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            Clothes newClothing = new Clothes();
+            newClothing.setUserId(user.getId());
+            newClothing.setOriginalImageUrl(body.imageBase64());
+            newClothing.setClothingPictureUrl(body.imageBase64());
+
+            // Metadados customizados
+            newClothing.setName(body.name() != null ? body.name() : "New Item");
+            newClothing.setCategory(body.category() != null ? body.category() : ClothingCategory.SHIRT);
+            newClothing.setColor(body.color() != null ? body.color() : "Unknown");
+            newClothing.setBrand(body.brand() != null ? body.brand() : "Unknown");
+            newClothing.setDescription(body.description());
+            newClothing.setIsPublic(body.isPublic() != null ? body.isPublic() : true);
+            newClothing.setIsFavorite(false);
+            newClothing.setProcessingStatus(Clothes.ProcessingStatus.COMPLETED);
+
+            Clothes saved = clothesRepository.save(newClothing);
+            log.info("✅ Advanced clothing saved with ID: {}", saved.getId());
+
+            return ResponseEntity.ok(convertToDTO(saved));
+
+        } catch (Exception e) {
+            log.error("❌ Advanced upload error: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest()
+                    .body(new ErrorResponseDTO("Advanced upload failed", e.getMessage()));
+        }
+    }
+
+    // ✅ NOVO: Toggle favorito
+    @PatchMapping("/{id}/favorite")
+    public ResponseEntity<?> toggleFavorite(
+            @AuthenticationPrincipal User userBody,
+            @PathVariable UUID id) {
+        try {
+            log.info("=== Toggle Favorite ===");
+            log.info("Clothing ID: {}", id);
+
+            User user = userRepository.findByEmail(userBody.getEmail())
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            Clothes clothing = clothesRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Clothing not found"));
+
+            if (!clothing.getUserId().equals(user.getId())) {
+                return ResponseEntity.status(403).body("Access denied");
+            }
+
+            clothing.setIsFavorite(!clothing.getIsFavorite());
+            clothesRepository.save(clothing);
+
+            log.info("✅ Favorite toggled: {}", clothing.getIsFavorite());
+            return ResponseEntity.ok(convertToDTO(clothing));
+
+        } catch (Exception e) {
+            log.error("❌ Toggle favorite error: {}", e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(new ErrorResponseDTO("Failed to toggle favorite", e.getMessage()));
         }
     }
 
@@ -221,6 +294,7 @@ public class ClothesController {
             return ResponseEntity.badRequest().build();
         }
     }
+
     @PostMapping("/upload/batch-advanced")
     public ResponseEntity<?> uploadBatchAdvanced(
             @AuthenticationPrincipal User userBody,
@@ -236,12 +310,10 @@ public class ClothesController {
             List<UUID> clothingIds = new ArrayList<>();
 
             for (BatchAdvancedItemDTO item : body.items()) {
-
                 Clothes clothing = new Clothes();
                 clothing.setUserId(user.getId());
                 clothing.setOriginalImageUrl(item.imageBase64());
 
-                // Status
                 if (body.processWithAI()) {
                     clothing.setProcessingStatus(Clothes.ProcessingStatus.PENDING);
                     clothing.setClothingPictureUrl(item.imageBase64());
@@ -250,13 +322,13 @@ public class ClothesController {
                     clothing.setClothingPictureUrl(item.imageBase64());
                 }
 
-                // Campos customizados (com fallback)
                 clothing.setName(item.name() != null ? item.name() : "New Item");
                 clothing.setCategory(item.category() != null ? item.category() : ClothingCategory.SHIRT);
                 clothing.setColor(item.color() != null ? item.color() : "Unknown");
                 clothing.setBrand(item.brand() != null ? item.brand() : "Unknown");
                 clothing.setDescription(item.description());
                 clothing.setIsPublic(item.isPublic() != null ? item.isPublic() : true);
+                clothing.setIsFavorite(false);
 
                 Clothes saved = clothesRepository.save(clothing);
                 clothingIds.add(saved.getId());
@@ -304,6 +376,7 @@ public class ClothesController {
             newClothing.setClothingPictureUrl(body.clothingPictureUrl());
             newClothing.setDescription(body.description());
             newClothing.setIsPublic(body.isPublic() != null ? body.isPublic() : true);
+            newClothing.setIsFavorite(false);
             newClothing.setProcessingStatus(Clothes.ProcessingStatus.COMPLETED);
 
             clothesRepository.save(newClothing);
@@ -327,13 +400,11 @@ public class ClothesController {
                 clothing.getOriginalImageUrl(),
                 clothing.getDescription(),
                 clothing.getIsPublic(),
+                clothing.getIsFavorite(),  // ✅ NOVO
                 clothing.getProcessingStatus(),
                 clothing.getProcessingError(),
                 clothing.getCreatedAt(),
                 clothing.getUpdatedAt()
         );
     }
-
-
 }
-

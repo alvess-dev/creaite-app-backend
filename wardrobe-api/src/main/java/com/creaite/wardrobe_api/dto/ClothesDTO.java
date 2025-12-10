@@ -1,4 +1,3 @@
-// wardrobe-api/src/main/java/com/creaite/wardrobe_api/dto/ClothesDTO.java
 package com.creaite.wardrobe_api.dto;
 
 import com.creaite.wardrobe_api.domain.user.Clothes;
@@ -17,6 +16,7 @@ public record ClothesDTO(
         String originalImageUrl,
         String description,
         Boolean isPublic,
+        Boolean isFavorite,  // ✅ NOVO
         Clothes.ProcessingStatus processingStatus,
         String processingError,
         LocalDateTime createdAt,

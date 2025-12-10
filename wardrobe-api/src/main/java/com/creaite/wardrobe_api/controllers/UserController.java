@@ -1,4 +1,3 @@
-// wardrobe-api/src/main/java/com/creaite/wardrobe_api/controllers/UserController.java
 package com.creaite.wardrobe_api.controllers;
 
 import com.creaite.wardrobe_api.domain.user.Clothes;
@@ -17,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 @RestController
@@ -114,7 +114,7 @@ public class UserController {
             }
 
             List<ClothesDTO> clothesDTOList = clothesList.stream()
-                    .map(clothes -> new ClothesDTO(
+                    .map((Clothes clothes) -> new ClothesDTO(
                             clothes.getId(),
                             clothes.getName(),
                             clothes.getCategory(),
@@ -123,13 +123,14 @@ public class UserController {
                             clothes.getClothingPictureUrl(),
                             clothes.getOriginalImageUrl(),
                             clothes.getDescription(),
-                            clothes.getIsPublic(),
+                            clothes.getIsPublic(),      // isPublic
+                            clothes.getIsFavorite(),    // isFavorite -> ajuste para isFavorite() se necessário
                             clothes.getProcessingStatus(),
                             clothes.getProcessingError(),
                             clothes.getCreatedAt(),
                             clothes.getUpdatedAt()
                     ))
-                    .toList();
+                    .collect(Collectors.toList());
 
             return ResponseEntity.ok(clothesDTOList);
 
