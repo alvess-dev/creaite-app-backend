@@ -1,4 +1,3 @@
-// wardrobe-api/src/main/java/com/creaite/wardrobe_api/controllers/ClothesController.java
 package com.creaite.wardrobe_api.controllers;
 
 import com.creaite.wardrobe_api.domain.user.Clothes;
@@ -64,7 +63,7 @@ public class ClothesController {
             log.info("✅ Clothing saved with ID: {}", saved.getId());
 
             if (body.processWithAI()) {
-                log.info("Starting async AI processing...");
+                log.info("Starting async AI processing (simulated)...");
                 processingService.processClothingImageAsync(saved.getId());
             }
 
@@ -104,11 +103,10 @@ public class ClothesController {
                     newClothing.setClothingPictureUrl(imageBase64);
                 }
 
-                // ✅ VALORES PADRÃO OBRIGATÓRIOS
                 newClothing.setName("New Item");
                 newClothing.setCategory(ClothingCategory.SHIRT);
-                newClothing.setColor("Unknown"); // ✅ ADICIONADO
-                newClothing.setBrand("Unknown");  // ✅ ADICIONADO
+                newClothing.setColor("Unknown");
+                newClothing.setBrand("Unknown");
                 newClothing.setIsPublic(true);
 
                 Clothes saved = clothesRepository.save(newClothing);
@@ -118,11 +116,10 @@ public class ClothesController {
             log.info("✅ {} items saved", clothingIds.size());
 
             if (body.processWithAI()) {
-                log.info("Starting batch async AI processing...");
+                log.info("Starting batch async AI processing (simulated)...");
                 processingService.processBatchClothingImagesAsync(clothingIds);
             }
 
-            // Converter UUID para String
             List<String> clothingIdsAsStrings = clothingIds.stream()
                     .map(UUID::toString)
                     .toList();
@@ -224,6 +221,70 @@ public class ClothesController {
             return ResponseEntity.badRequest().build();
         }
     }
+    @PostMapping("/upload/batch-advanced")
+    public ResponseEntity<?> uploadBatchAdvanced(
+            @AuthenticationPrincipal User userBody,
+            @RequestBody @Valid BatchAdvancedUploadRequestDTO body) {
+        try {
+            log.info("=== Batch Advanced Upload Request ===");
+            log.info("Number of items: {}", body.items().size());
+            log.info("Process with AI: {}", body.processWithAI());
+
+            User user = userRepository.findByEmail(userBody.getEmail())
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            List<UUID> clothingIds = new ArrayList<>();
+
+            for (BatchAdvancedItemDTO item : body.items()) {
+
+                Clothes clothing = new Clothes();
+                clothing.setUserId(user.getId());
+                clothing.setOriginalImageUrl(item.imageBase64());
+
+                // Status
+                if (body.processWithAI()) {
+                    clothing.setProcessingStatus(Clothes.ProcessingStatus.PENDING);
+                    clothing.setClothingPictureUrl(item.imageBase64());
+                } else {
+                    clothing.setProcessingStatus(Clothes.ProcessingStatus.COMPLETED);
+                    clothing.setClothingPictureUrl(item.imageBase64());
+                }
+
+                // Campos customizados (com fallback)
+                clothing.setName(item.name() != null ? item.name() : "New Item");
+                clothing.setCategory(item.category() != null ? item.category() : ClothingCategory.SHIRT);
+                clothing.setColor(item.color() != null ? item.color() : "Unknown");
+                clothing.setBrand(item.brand() != null ? item.brand() : "Unknown");
+                clothing.setDescription(item.description());
+                clothing.setIsPublic(item.isPublic() != null ? item.isPublic() : true);
+
+                Clothes saved = clothesRepository.save(clothing);
+                clothingIds.add(saved.getId());
+            }
+
+            log.info("Saved {} advanced items", clothingIds.size());
+
+            if (body.processWithAI()) {
+                log.info("Starting batch-advanced async AI processing...");
+                processingService.processBatchClothingImagesAsync(clothingIds);
+            }
+
+            List<String> clothingIdsAsStrings = clothingIds.stream()
+                    .map(UUID::toString)
+                    .toList();
+
+            return ResponseEntity.ok(new BatchUploadResponseDTO(
+                    clothingIdsAsStrings,
+                    "Advanced batch upload successful",
+                    clothingIds.size()
+            ));
+
+        } catch (Exception e) {
+            log.error("❌ Batch advanced upload error: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest()
+                    .body(new ErrorResponseDTO("Batch advanced upload failed", e.getMessage()));
+        }
+    }
 
     @PostMapping("/add")
     public ResponseEntity<?> add(
@@ -272,4 +333,7 @@ public class ClothesController {
                 clothing.getUpdatedAt()
         );
     }
+
+
 }
+

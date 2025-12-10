@@ -1,4 +1,3 @@
-// wardrobe-api/src/main/java/com/creaite/wardrobe_api/services/ClothesProcessingService.java
 package com.creaite.wardrobe_api.services;
 
 import com.creaite.wardrobe_api.domain.user.Clothes;
@@ -21,7 +20,7 @@ public class ClothesProcessingService {
     @Async
     public void processClothingImageAsync(UUID clothingId) {
         try {
-            log.info("=== Starting async processing for clothing ID: {} ===", clothingId);
+            log.info("=== Starting async simulated processing for clothing ID: {} ===", clothingId);
 
             Clothes clothing = clothesRepository.findById(clothingId)
                     .orElseThrow(() -> new RuntimeException("Clothing not found"));
@@ -29,14 +28,10 @@ public class ClothesProcessingService {
             // Atualiza status para PROCESSING
             clothing.setProcessingStatus(Clothes.ProcessingStatus.PROCESSING);
             clothesRepository.save(clothing);
-            log.info("Status updated to PROCESSING");
+            log.info("Status updated to PROCESSING for {}", clothingId);
 
-            // Processa a imagem com Gemini
-            String originalImage = clothing.getOriginalImageUrl();
-            log.info("Processing image with Gemini...");
-
-            String processedImage = geminiService.processImageWithGemini(originalImage);
-            log.info("✅ Image processed successfully");
+            // Chama GeminiService (que agora sempre carrega camiseta.jpeg)
+            String processedImage = geminiService.processImageWithGemini(clothing.getOriginalImageUrl());
 
             // Atualiza a roupa com a imagem processada
             clothing.setClothingPictureUrl(processedImage);
@@ -44,10 +39,10 @@ public class ClothesProcessingService {
             clothing.setProcessingError(null);
             clothesRepository.save(clothing);
 
-            log.info("✅ Clothing {} processing completed successfully", clothingId);
+            log.info("✅ Clothing {} simulated processing completed successfully", clothingId);
 
         } catch (Exception e) {
-            log.error("❌ Error processing clothing {}: {}", clothingId, e.getMessage(), e);
+            log.error("❌ Error in simulated processing for clothing {}: {}", clothingId, e.getMessage(), e);
 
             // Atualiza status para FAILED
             clothesRepository.findById(clothingId).ifPresent(clothing -> {
@@ -60,20 +55,20 @@ public class ClothesProcessingService {
 
     @Async
     public void processBatchClothingImagesAsync(Iterable<UUID> clothingIds) {
-        log.info("=== Starting batch processing ===");
+        log.info("=== Starting batch simulated processing ===");
 
         for (UUID clothingId : clothingIds) {
             try {
                 processClothingImageAsync(clothingId);
 
-                // Pequeno delay entre processamentos para não sobrecarregar a API
+                // Pequeno delay entre processamentos
                 Thread.sleep(1000);
 
             } catch (Exception e) {
-                log.error("❌ Error in batch processing for clothing {}: {}", clothingId, e.getMessage());
+                log.error("❌ Error in batch simulated processing for clothing {}: {}", clothingId, e.getMessage());
             }
         }
 
-        log.info("✅ Batch processing completed");
+        log.info("✅ Batch simulated processing completed");
     }
 }

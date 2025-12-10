@@ -42,7 +42,9 @@ public class SecurityConfig {
                         .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
 
                         // Todas as outras rotas requerem autenticação
-                        .anyRequest().authenticated()
+                        .requestMatchers("/clothes/**").authenticated()
+                        .requestMatchers("/ai/**").authenticated()
+                        .anyRequest().permitAll()
                 )
                 .oauth2Login(oauth2 -> oauth2
                         .successHandler(oAuth2LoginSuccessHandler)
