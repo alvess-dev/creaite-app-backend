@@ -407,4 +407,154 @@ public class ClothesController {
                 clothing.getUpdatedAt()
         );
     }
+
+    // Atualize estes métodos no ClothesController.java
+
+    @PostMapping("/upload")
+    public ResponseEntity<?> uploadClothing(
+            @AuthenticationPrincipal User userBody,
+            @RequestBody @Valid ClothesUploadRequestDTO body) {
+        try {
+            log.info("=== Upload Clothing Request ===");
+            log.info("Process with AI: {}", body.processWithAI());
+
+            User user = userRepository.findByEmail(userBody.getEmail())
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            Clothes newClothing = new Clothes();
+            newClothing.setUserId(user.getId());
+            newClothing.setOriginalImageUrl(body.imageBase64());
+            newClothing.setClothingPictureUrl(body.imageBase64()); // Temporário
+            newClothing.setProcessingStatus(Clothes.ProcessingStatus.PENDING);
+            newClothing.setName("New Item");
+            newClothing.setCategory(ClothingCategory.SHIRT);
+            newClothing.setColor("Unknown");
+            newClothing.setBrand("Unknown");
+            newClothing.setIsPublic(true);
+            newClothing.setIsFavorite(false);
+
+            Clothes saved = clothesRepository.save(newClothing);
+            log.info("✅ Clothing saved with ID: {}", saved.getId());
+
+            // Inicia processamento assíncrono
+            log.info("Starting async processing (AI: {})...", body.processWithAI());
+            processingService.processClothingImageAsync(saved.getId(), body.processWithAI());
+
+            return ResponseEntity.ok(convertToDTO(saved));
+
+        } catch (Exception e) {
+            log.error("❌ Upload error: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest()
+                    .body(new ErrorResponseDTO("Upload failed", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/upload/batch")
+    public ResponseEntity<?> uploadBatchClothing(
+            @AuthenticationPrincipal User userBody,
+            @RequestBody @Valid BatchUploadRequestDTO body) {
+        try {
+            log.info("=== Batch Upload Request ===");
+            log.info("Number of images: {}", body.imagesBase64().size());
+            log.info("Process with AI: {}", body.processWithAI());
+
+            User user = userRepository.findByEmail(userBody.getEmail())
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            List<UUID> clothingIds = new ArrayList<>();
+
+            for (String imageBase64 : body.imagesBase64()) {
+                Clothes newClothing = new Clothes();
+                newClothing.setUserId(user.getId());
+                newClothing.setOriginalImageUrl(imageBase64);
+                newClothing.setClothingPictureUrl(imageBase64); // Temporário
+                newClothing.setProcessingStatus(Clothes.ProcessingStatus.PENDING);
+                newClothing.setName("New Item");
+                newClothing.setCategory(ClothingCategory.SHIRT);
+                newClothing.setColor("Unknown");
+                newClothing.setBrand("Unknown");
+                newClothing.setIsPublic(true);
+                newClothing.setIsFavorite(false);
+
+                Clothes saved = clothesRepository.save(newClothing);
+                clothingIds.add(saved.getId());
+            }
+
+            log.info("✅ {} items saved", clothingIds.size());
+
+            // Inicia processamento em batch
+            log.info("Starting batch async processing (AI: {})...", body.processWithAI());
+            processingService.processBatchClothingImagesAsync(clothingIds, body.processWithAI());
+
+            List<String> clothingIdsAsStrings = clothingIds.stream()
+                    .map(UUID::toString)
+                    .toList();
+
+            return ResponseEntity.ok(new BatchUploadResponseDTO(
+                    clothingIdsAsStrings,
+                    "Upload successful - processing in background",
+                    clothingIds.size()
+            ));
+
+        } catch (Exception e) {
+            log.error("❌ Batch upload error: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest()
+                    .body(new ErrorResponseDTO("Batch upload failed", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/upload/batch-advanced")
+    public ResponseEntity<?> uploadBatchAdvanced(
+            @AuthenticationPrincipal User userBody,
+            @RequestBody @Valid BatchAdvancedUploadRequestDTO body) {
+        try {
+            log.info("=== Batch Advanced Upload Request ===");
+            log.info("Number of items: {}", body.items().size());
+            log.info("Process with AI: {}", body.processWithAI());
+
+            User user = userRepository.findByEmail(userBody.getEmail())
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            List<UUID> clothingIds = new ArrayList<>();
+
+            for (BatchAdvancedItemDTO item : body.items()) {
+                Clothes clothing = new Clothes();
+                clothing.setUserId(user.getId());
+                clothing.setOriginalImageUrl(item.imageBase64());
+                clothing.setClothingPictureUrl(item.imageBase64()); // Temporário
+                clothing.setProcessingStatus(Clothes.ProcessingStatus.PENDING);
+                clothing.setName(item.name() != null ? item.name() : "New Item");
+                clothing.setCategory(item.category() != null ? item.category() : ClothingCategory.SHIRT);
+                clothing.setColor(item.color() != null ? item.color() : "Unknown");
+                clothing.setBrand(item.brand() != null ? item.brand() : "Unknown");
+                clothing.setDescription(item.description());
+                clothing.setIsPublic(item.isPublic() != null ? item.isPublic() : true);
+                clothing.setIsFavorite(false);
+
+                Clothes saved = clothesRepository.save(clothing);
+                clothingIds.add(saved.getId());
+            }
+
+            log.info("Saved {} advanced items", clothingIds.size());
+
+            // Inicia processamento em batch
+            log.info("Starting batch-advanced async processing (AI: {})...", body.processWithAI());
+            processingService.processBatchClothingImagesAsync(clothingIds, body.processWithAI());
+
+            List<String> clothingIdsAsStrings = clothingIds.stream()
+                    .map(UUID::toString)
+                    .toList();
+
+            return ResponseEntity.ok(new BatchUploadResponseDTO(
+                    clothingIdsAsStrings,
+                    "Advanced batch upload successful - processing in background",
+                    clothingIds.size()
+            ));
+
+        } catch (Exception e) {
+            log.error("❌ Batch advanced upload error: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest()
+                    .body(new ErrorResponseDTO("Batch advanced upload failed", e.getMessage()));
+        }
+    }
 }

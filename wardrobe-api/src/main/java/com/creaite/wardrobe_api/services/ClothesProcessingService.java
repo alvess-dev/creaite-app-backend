@@ -1,3 +1,4 @@
+// wardrobe-api/src/main/java/com/creaite/wardrobe_api/services/ClothesProcessingService.java
 package com.creaite.wardrobe_api.services;
 
 import com.creaite.wardrobe_api.domain.user.Clothes;
@@ -15,36 +16,64 @@ import java.util.UUID;
 public class ClothesProcessingService {
 
     private final ClothesRepository clothesRepository;
-    private final GeminiService geminiService;
+    private final OpenAIService openAIService;
+    private final RemoveBGService removeBGService;
 
-    @Async
-    public void processClothingImageAsync(UUID clothingId) {
+    /**
+     * Processa a imagem de forma assíncrona
+     * @param clothingId ID da roupa
+     * @param enhanceWithAI Se deve processar com IA
+     */
+    @Async("taskExecutor")
+    public void processClothingImageAsync(UUID clothingId, boolean enhanceWithAI) {
         try {
-            log.info("=== Starting async simulated processing for clothing ID: {} ===", clothingId);
+            log.info("=== Starting async processing for clothing ID: {} ===", clothingId);
+            log.info("Enhance with AI: {}", enhanceWithAI);
 
             Clothes clothing = clothesRepository.findById(clothingId)
                     .orElseThrow(() -> new RuntimeException("Clothing not found"));
 
-            // Atualiza status para PROCESSING
-            clothing.setProcessingStatus(Clothes.ProcessingStatus.PROCESSING);
+            String processedImage = clothing.getOriginalImageUrl();
+
+            // Etapa 1: Processar com IA (se solicitado)
+            if (enhanceWithAI) {
+                log.info("Step 1/2: Processing with AI...");
+                clothing.setProcessingStatus(Clothes.ProcessingStatus.PROCESSING_AI);
+                clothesRepository.save(clothing);
+
+                try {
+                    processedImage = openAIService.enhanceImageWithAI(processedImage);
+                    log.info("✅ AI enhancement complete");
+                } catch (Exception e) {
+                    log.error("❌ AI enhancement failed: {}", e.getMessage());
+                    // Continua com a imagem original
+                }
+            }
+
+            // Etapa 2: Remover fundo (sempre)
+            log.info("Step {}/2: Removing background...", enhanceWithAI ? 2 : 1);
+            clothing.setProcessingStatus(Clothes.ProcessingStatus.REMOVING_BACKGROUND);
             clothesRepository.save(clothing);
-            log.info("Status updated to PROCESSING for {}", clothingId);
 
-            // Chama GeminiService (que agora sempre carrega camiseta.jpeg)
-            String processedImage = geminiService.processImageWithGemini(clothing.getOriginalImageUrl());
+            try {
+                processedImage = removeBGService.removeBackground(processedImage);
+                log.info("✅ Background removal complete");
+            } catch (Exception e) {
+                log.error("❌ Background removal failed: {}", e.getMessage());
+                // Continua com a imagem que tem (com ou sem IA)
+            }
 
-            // Atualiza a roupa com a imagem processada
+            // Finaliza o processamento
             clothing.setClothingPictureUrl(processedImage);
             clothing.setProcessingStatus(Clothes.ProcessingStatus.COMPLETED);
             clothing.setProcessingError(null);
             clothesRepository.save(clothing);
 
-            log.info("✅ Clothing {} simulated processing completed successfully", clothingId);
+            log.info("✅ Clothing {} processing completed successfully", clothingId);
 
         } catch (Exception e) {
-            log.error("❌ Error in simulated processing for clothing {}: {}", clothingId, e.getMessage(), e);
+            log.error("❌ Error processing clothing {}: {}", clothingId, e.getMessage(), e);
 
-            // Atualiza status para FAILED
             clothesRepository.findById(clothingId).ifPresent(clothing -> {
                 clothing.setProcessingStatus(Clothes.ProcessingStatus.FAILED);
                 clothing.setProcessingError(e.getMessage());
@@ -53,22 +82,26 @@ public class ClothesProcessingService {
         }
     }
 
-    @Async
-    public void processBatchClothingImagesAsync(Iterable<UUID> clothingIds) {
-        log.info("=== Starting batch simulated processing ===");
+    /**
+     * Processa múltiplas imagens em batch
+     */
+    @Async("taskExecutor")
+    public void processBatchClothingImagesAsync(Iterable<UUID> clothingIds, boolean enhanceWithAI) {
+        log.info("=== Starting batch processing ===");
+        log.info("Enhance with AI: {}", enhanceWithAI);
 
         for (UUID clothingId : clothingIds) {
             try {
-                processClothingImageAsync(clothingId);
+                processClothingImageAsync(clothingId, enhanceWithAI);
 
                 // Pequeno delay entre processamentos
-                Thread.sleep(1000);
+                Thread.sleep(2000);
 
             } catch (Exception e) {
-                log.error("❌ Error in batch simulated processing for clothing {}: {}", clothingId, e.getMessage());
+                log.error("❌ Error in batch processing for clothing {}: {}", clothingId, e.getMessage());
             }
         }
 
-        log.info("✅ Batch simulated processing completed");
+        log.info("✅ Batch processing completed");
     }
 }
