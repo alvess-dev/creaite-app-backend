@@ -51,7 +51,6 @@ public class Clothes {
     @Column(name = "is_public")
     private Boolean isPublic = true;
 
-    // ✅ NOVO: Campo de favorito
     @Column(name = "is_favorite")
     private Boolean isFavorite = false;
 
@@ -79,9 +78,12 @@ public class Clothes {
         updatedAt = LocalDateTime.now();
     }
 
+    // ✅ ENUM CORRIGIDO - Adicionados PROCESSING_AI e REMOVING_BACKGROUND
     public enum ProcessingStatus {
         PENDING,
         PROCESSING,
+        PROCESSING_AI,          // ✅ ADICIONADO
+        REMOVING_BACKGROUND,    // ✅ ADICIONADO
         COMPLETED,
         FAILED
     }

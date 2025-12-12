@@ -8,10 +8,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.time.Duration;
 import java.util.Base64;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -26,6 +29,8 @@ public class OpenAIService {
     public String enhanceImageWithAI(String imageBase64) {
         log.info("=== OpenAI: Starting image enhancement ===");
 
+        File tempImageFile = null;
+
         try {
             // Remove o prefixo data:image se existir
             String cleanBase64 = imageBase64;
@@ -36,11 +41,12 @@ public class OpenAIService {
             // Decodifica a imagem
             byte[] imageBytes = Base64.getDecoder().decode(cleanBase64);
 
+            // ✅ CORRIGIDO: Cria arquivo temporário
+            tempImageFile = createTempFile(imageBytes, "png");
+            log.info("Temporary file created: {}", tempImageFile.getAbsolutePath());
+
             // Cria o serviço OpenAI com timeout maior
             OpenAiService service = new OpenAiService(apiKey, Duration.ofSeconds(120));
-
-            // Cria um InputStream da imagem
-            InputStream imageStream = new ByteArrayInputStream(imageBytes);
 
             // Cria a requisição para DALL-E
             CreateImageEditRequest request = CreateImageEditRequest.builder()
@@ -50,7 +56,9 @@ public class OpenAIService {
                     .build();
 
             log.info("Sending image to OpenAI DALL-E...");
-            ImageResult result = service.createImageEdit(request, "image.png", imageStream);
+
+            // ✅ CORRIGIDO: Usa File em vez de InputStream
+            ImageResult result = service.createImageEdit(request, tempImageFile.getAbsolutePath(), null);
 
             // Pega a URL da imagem gerada
             String imageUrl = result.getData().get(0).getUrl();
@@ -65,9 +73,37 @@ public class OpenAIService {
         } catch (Exception e) {
             log.error("❌ OpenAI enhancement failed: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to enhance image with AI: " + e.getMessage());
+        } finally {
+            // ✅ Limpa arquivo temporário
+            if (tempImageFile != null && tempImageFile.exists()) {
+                try {
+                    Files.deleteIfExists(tempImageFile.toPath());
+                    log.debug("Temporary file deleted");
+                } catch (IOException e) {
+                    log.warn("Failed to delete temporary file: {}", e.getMessage());
+                }
+            }
         }
     }
 
+    /**
+     * Cria um arquivo temporário com os bytes da imagem
+     */
+    private File createTempFile(byte[] imageBytes, String extension) throws IOException {
+        String tempDir = System.getProperty("java.io.tmpdir");
+        String fileName = "openai_" + UUID.randomUUID() + "." + extension;
+        File tempFile = new File(tempDir, fileName);
+
+        try (FileOutputStream fos = new FileOutputStream(tempFile)) {
+            fos.write(imageBytes);
+        }
+
+        return tempFile;
+    }
+
+    /**
+     * Baixa a imagem da URL e converte para base64
+     */
     private String downloadImageAsBase64(String imageUrl) {
         try {
             java.net.URL url = new java.net.URL(imageUrl);
